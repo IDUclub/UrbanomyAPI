@@ -1,0 +1,10 @@
+version: '1.0'
+
+services:
+  EffectsAPI:
+    image: urbanomicapi:dev
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 80:80
