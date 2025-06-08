@@ -6,7 +6,6 @@ from iduconfig import Config
 from app.common.exceptions.http_exception_wrapper import http_exception
 from app.common.api_handler.api_handler import APIHandler
 
-
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 log_level = "INFO"

@@ -1,5 +1,7 @@
 import geopandas as gpd
 import pandas as pd
+from loguru import logger
+from shapely.geometry import shape
 
 from app.dependencies import urban_api_handler, http_exception
 
@@ -46,7 +48,7 @@ class UrbanAPIGateway:
         return best
 
     @staticmethod
-    async def get_functional_zones(scenario_id: int, is_context: bool = False, source: str = None) -> dict:
+    async def get_functional_zones(scenario_id: int, is_context: bool = False, source: str = None) -> gpd.GeoDataFrame:
         """
         Fetches functional zones for a project with an optional context flag and source selection.
 
@@ -73,14 +75,59 @@ class UrbanAPIGateway:
                     )
 
         response = await urban_api_handler.get(endpoint)
+        features = response["features"]
+        geometries = []
+        for feature in features:
+            try:
+                geom = shape(feature["geometry"])
+                if not geom.is_valid:
+                    geom = geom.buffer(0)
+                geometries.append(geom)
+            except Exception as e:
+                logger.error(f"Error processing geometry: {e}")
+                geometries.append(None)
+
+        properties = [feature["properties"] for feature in features]
+        landuse_polygons = gpd.GeoDataFrame(properties, geometry=geometries, crs="EPSG:4326")
+
+        if 'properties' in landuse_polygons.columns:
+            landuse_polygons['landuse_zone'] = landuse_polygons['properties'].apply(
+                lambda x: x.get('landuse_zon') if isinstance(x, dict) else None)
+
+        if 'functional_zone_type' in landuse_polygons.columns:
+            landuse_polygons['zone_type_id'] = landuse_polygons['functional_zone_type'].apply(
+                lambda x: x.get('id') if isinstance(x, dict) else None)
+            landuse_polygons['zone_type_name'] = landuse_polygons['functional_zone_type'].apply(
+                lambda x: x.get('name') if isinstance(x, dict) and x.get('name') != "unknown" else "residential"
+            )
+
+        # if "territory" in landuse_polygons.columns:
+        #     landuse_polygons['zone_type_parent_territory_id'] = landuse_polygons['territory'].apply(
+        #         lambda x: x.get('id') if isinstance(x, dict) else None)
+        #     landuse_polygons['zone_type_parent_territory_name'] = landuse_polygons['territory'].apply(
+        #         lambda x: x.get('name') if isinstance(x, dict) else None)
+
+        landuse_polygons.drop(
+            columns=['properties', 'functional_zone_type', 'territory', 'created_at', 'updated_at', 'zone_type_name', 'functional_zone_id',
+                     'year', 'source', 'name'],
+            inplace=True, errors='ignore'
+        )
+
+        landuse_polygons.replace({
+            "landuse_zone": {None: "Residential"},
+            "zone_type_id": {14: 1}
+        }, inplace=True)
+
+        logger.info("Functional zones fetched")
+
         if not response or "features" not in response or not response["features"]:
             raise http_exception(404, "No functional zones found for the given scenario ID", scenario_id)
 
-        return response
+        return landuse_polygons
 
     @staticmethod
     async def get_project_id(scenario_id: int) -> int:
-        endpoint = f"api/v1/scenarios/{scenario_id}"
+        endpoint = f"/api/v1/scenarios/{scenario_id}"
         response = await urban_api_handler.get(endpoint)
         try:
             project_id = response.get("project", {}).get("project_id")
@@ -91,8 +138,8 @@ class UrbanAPIGateway:
 
     @staticmethod
     async def get_territory(scenario_id: int) -> gpd.GeoDataFrame:
-        project_id = UrbanAPIGateway.get_project_id(scenario_id)
-        endpoint = f"api/v1/projects/{project_id}/territory"
+        project_id = await UrbanAPIGateway.get_project_id(scenario_id)
+        endpoint = f"/api/v1/projects/{project_id}/territory"
         try:
             response = await urban_api_handler.get(endpoint)
         except Exception:
@@ -109,22 +156,13 @@ class UrbanAPIGateway:
         return polygon_gdf
 
     @staticmethod
-    async def get_indicator_values(scenario_id: int, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        endpoint = f"api/v1/scenarios/{scenario_id}/indicators_values"
+    async def get_indicator_values(scenario_id: int) -> dict:
+        endpoint = f"/api/v1/scenarios/{scenario_id}/indicators_values"
         try:
             response = await urban_api_handler.get(endpoint)
         except Exception:
             raise http_exception(404, "No indicators values found for the given scenario ID", scenario_id)
-
-        indicator_attributes = {
-            indicator['indicator']['name_full']: indicator['value']
-            for indicator in response
-        }
-
-        for name, value in indicator_attributes.items():
-            gdf[name] = value
-
-        return gdf
+        return response
 
 
 UrbanAPIGateway = UrbanAPIGateway()
