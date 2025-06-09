@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field
 
@@ -102,11 +102,14 @@ benchmarks_demo = {
 }
 
 
-class InvestmentAttractivenessDto(BaseModel):
+class InvestmentAttractivenessQueryDto(BaseModel):
     scenario_id: int = Field(..., example=198, description="Scenario ID")
-    to_return: str = Field(..., example="geodataframe", description="Какой формат результата вернуть")
-    benchmarks: dict[str, dict[str, Any]] = Field(
+    to_return: str = Field(..., example="geodataframe", description="Which format to return")
+
+
+class InvestmentAttractivenessBodyDto(BaseModel):
+    benchmarks: Dict[str, Dict[str, Any]] = Field(
         ...,
         example=benchmarks_demo,
-        description="Словарь бенчмарков для каждой категории"
+        description="Dictionary of benchmarks data for each land use category"
     )

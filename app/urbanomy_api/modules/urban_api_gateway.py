@@ -27,9 +27,9 @@ class UrbanAPIGateway:
         return df_sources.loc[idx].to_dict()
 
     async def get_functional_zone_sources(
-        self,
-        scenario_id: int,
-        source: str = None
+            self,
+            scenario_id: int,
+            source: str = None
     ) -> dict:
 
         endpoint = f"/api/v1/scenarios/{scenario_id}/functional_zone_sources"
@@ -108,7 +108,8 @@ class UrbanAPIGateway:
         #         lambda x: x.get('name') if isinstance(x, dict) else None)
 
         landuse_polygons.drop(
-            columns=['properties', 'functional_zone_type', 'territory', 'created_at', 'updated_at', 'zone_type_name', 'functional_zone_id',
+            columns=['properties', 'functional_zone_type', 'territory', 'created_at', 'updated_at', 'zone_type_name',
+                     'functional_zone_id',
                      'year', 'source', 'name'],
             inplace=True, errors='ignore'
         )
@@ -153,6 +154,7 @@ class UrbanAPIGateway:
         }
         polygon_gdf = gpd.GeoDataFrame.from_features([territory_feature], crs=4326)
         polygon_gdf = polygon_gdf.to_crs(polygon_gdf.estimate_utm_crs())
+        logger.info(f"Territory have been loaded")
         return polygon_gdf
 
     @staticmethod
@@ -166,4 +168,3 @@ class UrbanAPIGateway:
 
 
 UrbanAPIGateway = UrbanAPIGateway()
-
