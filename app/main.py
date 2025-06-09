@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from .dependencies import config
-from .urbanomy.urbanomic_controller import urbanomic_router
+from .urbanomy_api.urbanomic_controller import urbanomic_router
 
 app = FastAPI(
     title="Urbanomy API",
