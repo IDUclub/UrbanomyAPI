@@ -75,20 +75,8 @@ class UrbanAPIGateway:
                     )
 
         response = await urban_api_handler.get(endpoint)
-        features = response["features"]
-        geometries = []
-        for feature in features:
-            try:
-                geom = shape(feature["geometry"])
-                if not geom.is_valid:
-                    geom = geom.buffer(0)
-                geometries.append(geom)
-            except Exception as e:
-                logger.error(f"Error processing geometry: {e}")
-                geometries.append(None)
-
-        properties = [feature["properties"] for feature in features]
-        landuse_polygons = gpd.GeoDataFrame(properties, geometry=geometries, crs="EPSG:4326")
+        features = response.get("features", response)
+        landuse_polygons = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
 
         if 'properties' in landuse_polygons.columns:
             landuse_polygons['landuse_zone'] = landuse_polygons['properties'].apply(
@@ -100,12 +88,6 @@ class UrbanAPIGateway:
             landuse_polygons['zone_type_name'] = landuse_polygons['functional_zone_type'].apply(
                 lambda x: x.get('name') if isinstance(x, dict) and x.get('name') != "unknown" else "residential"
             )
-
-        # if "territory" in landuse_polygons.columns:
-        #     landuse_polygons['zone_type_parent_territory_id'] = landuse_polygons['territory'].apply(
-        #         lambda x: x.get('id') if isinstance(x, dict) else None)
-        #     landuse_polygons['zone_type_parent_territory_name'] = landuse_polygons['territory'].apply(
-        #         lambda x: x.get('name') if isinstance(x, dict) else None)
 
         landuse_polygons.drop(
             columns=['properties', 'functional_zone_type', 'territory', 'created_at', 'updated_at', 'zone_type_name',

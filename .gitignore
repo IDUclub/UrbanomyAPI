@@ -125,8 +125,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env.development
-.env.development
 .venv
 env/
 venv/
@@ -166,3 +164,4 @@ cython_debug/
 .idea/
 cache/
 *.ipynb
+.env.*
