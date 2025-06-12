@@ -1,57 +1,28 @@
-from typing import Dict
+from fastapi import Body
 from pydantic import BaseModel, Field
 
-from app.urbanomy_api.schemas.features_model import FeatureCollection
-from app.urbanomy_api.dto.investment_attractivness_dto import (
-    ResidentialBenchmarkDto,
-    NonResidentialBenchmarkDto,
-    residential_demo,
-    non_residential_demo,
-)
+from app.urbanomy_api.schemas.features_model import FeatureCollection, EXAMPLE_GEOMETRY
+from app.urbanomy_api.dto.benchmarks_dto import BenchmarksDto
 
 
 class InvestmentAttractivenessCoordsDto(BaseModel):
-    scenario_id: int = Field(
+    scenario_id: int = Field(..., example=198, description="Scenario id")
+    as_geojson: bool = Field(..., example=False, description="Which format to return")
+    benchmarks: BenchmarksDto = Body(
         ...,
-        example=198,
-        description="Scenario ID"
+        description="Benchmark parameters for each functional zone category",
     )
-    as_geojson: bool = Field(
+
+    geometry: FeatureCollection = Body(
         ...,
-        example=False,
-        description="Which format to return"
-    )
-    residential: Dict[str, ResidentialBenchmarkDto] = Field(
-        default=residential_demo,
-        description="Эталонные параметры для жилых категорий"
-    )
-    non_residential: Dict[str, NonResidentialBenchmarkDto] = Field(
-        default=non_residential_demo,
-        description="Эталонные параметры для остальных категорий"
-    )
-    geometry: FeatureCollection = Field(
-        ...,
-        description="GeoJSON FeatureCollection с одним полигоном и полем zone_type_id в свойствах",
+        description="GeoJSON FeatureCollection with geometries and zone_type_id property",
         examples=[{
             "type": "FeatureCollection",
             "features": [
                 {
                     "type": "Feature",
                     "id": 42,
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [
-                            [
-                                [31.0406076, 59.9224151],
-                                [31.0392415, 59.9217319],
-                                [31.0423422, 59.9204629],
-                                [31.0416663, 59.9200381],
-                                [31.0379064, 59.9216766],
-                                [31.0384506, 59.9236044],
-                                [31.0406076, 59.9224151]
-                            ]
-                        ]
-                    },
+                    "geometry": EXAMPLE_GEOMETRY,
                     "properties": {
                         "zone_type_id": 1
                     }
@@ -59,3 +30,4 @@ class InvestmentAttractivenessCoordsDto(BaseModel):
             ]
         }]
     )
+

@@ -1,19 +1,23 @@
 from typing import Any, Optional, Self
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import Literal, List, Dict
 import shapely
 import shapely.geometry as geom
 import json
 
+from app.common.exceptions.http_exception_wrapper import http_exception
+
 EXAMPLE_GEOMETRY: Dict[str, Any] = {
     "type": "Polygon",
     "coordinates": [
         [
-            [31.038556, 59.922080],
-            [31.036947, 59.920413],
-            [31.040023, 59.919382],
-            [31.041870, 59.920945],
-            [31.038556, 59.922080]
+            [31.0406076, 59.9224151],
+            [31.0392415, 59.9217319],
+            [31.0423422, 59.9204629],
+            [31.0416663, 59.9200381],
+            [31.0379064, 59.9216766],
+            [31.0384506, 59.9236044],
+            [31.0406076, 59.9224151]
         ]
     ]
 }
@@ -77,7 +81,6 @@ class PolygonalGeometry(BaseModel):
         """
         Validating that the geometry dict is valid
         """
-        # count nesting depth
         depth = 0
         ref = self.coordinates
         while isinstance(ref, list):
@@ -116,6 +119,15 @@ class Feature(BaseModel):
             "properties": self.properties
         }
 
+    @field_validator("properties", mode="after")
+    @classmethod
+    def must_have_zone_type_id(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        if "zone_type_id" not in v:
+            raise http_exception(422, "each Feature.properties must include a 'zone_type_id'")
+        if not isinstance(v["zone_type_id"], int):
+            raise http_exception(422, "'zone_type_id' must be an integer")
+        return v
+
 
 class FeatureCollection(BaseModel):
     type: Literal["FeatureCollection"] = Field(
@@ -124,7 +136,7 @@ class FeatureCollection(BaseModel):
     )
     features: List[Feature] = Field(
         ...,
-        description="Список геометрий с их свойствами"
+        description="Geometries with feature properties"
     )
 
     def as_geo_dict(self) -> dict:

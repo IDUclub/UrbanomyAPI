@@ -5,13 +5,12 @@ git+https://github.com/Mvin8/Urbanomy.git@main
 idu-config
 loguru~=0.6.0
 uvicorn~=0.34.3
-gunicorn
 requests~=2.32.3
 aiohttp~=3.12.7
 geopandas~=1.1.0
 pandas~=2.2.3
 pydantic~=1.10.22
 shapely~=2.1.1
-numpy
-pandera
-matplotlib
+numpy~=2.3.0
+pandera~=0.24.0
+matplotlib~=3.10.3
