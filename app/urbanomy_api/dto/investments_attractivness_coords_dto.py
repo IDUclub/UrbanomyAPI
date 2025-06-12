@@ -1,15 +1,26 @@
 from typing import Dict
-
 from pydantic import BaseModel, Field
 
-from geojson_pydantic.features import FeatureCollection
+from app.urbanomy_api.schemas.features_model import FeatureCollection
+from app.urbanomy_api.dto.investment_attractivness_dto import (
+    ResidentialBenchmarkDto,
+    NonResidentialBenchmarkDto,
+    residential_demo,
+    non_residential_demo,
+)
 
-from app.urbanomy_api.dto.investment_attractivness_dto import ResidentialBenchmarkDto, NonResidentialBenchmarkDto, \
-    residential_demo, non_residential_demo
 
 class InvestmentAttractivenessCoordsDto(BaseModel):
-    scenario_id: int = Field(..., example=198, description="Scenario ID")
-    as_geojson: bool = Field(..., example=False, description="Which format to return")
+    scenario_id: int = Field(
+        ...,
+        example=198,
+        description="Scenario ID"
+    )
+    as_geojson: bool = Field(
+        ...,
+        example=False,
+        description="Which format to return"
+    )
     residential: Dict[str, ResidentialBenchmarkDto] = Field(
         default=residential_demo,
         description="Эталонные параметры для жилых категорий"
@@ -20,12 +31,13 @@ class InvestmentAttractivenessCoordsDto(BaseModel):
     )
     geometry: FeatureCollection = Field(
         ...,
-        description="GeoJSON FeatureCollection with geometry data",
-        example={
+        description="GeoJSON FeatureCollection с одним полигоном и полем zone_type_id в свойствах",
+        examples=[{
             "type": "FeatureCollection",
             "features": [
                 {
                     "type": "Feature",
+                    "id": 42,
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
@@ -45,6 +57,5 @@ class InvestmentAttractivenessCoordsDto(BaseModel):
                     }
                 }
             ]
-        }
+        }]
     )
-

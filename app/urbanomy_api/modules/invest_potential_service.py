@@ -1,7 +1,6 @@
 import json
 from typing import Dict, Any, List
 
-from geojson_pydantic import FeatureCollection
 from loguru import logger
 from urbanomy.methods.investment_potential import LandUseScoreAnalyzer, LAND_USE_TO_POTENTIAL_COLUMN, \
     InvestmentAttractivenessAnalyzer
@@ -10,6 +9,7 @@ import geopandas as gpd
 import math
 
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
+from app.urbanomy_api.schemas.features_model import FeatureCollection
 
 
 class InvestmentPotentialService:
@@ -213,13 +213,13 @@ class InvestmentPotentialService:
         response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
         return response
 
-
     @staticmethod
     async def run_investment_calculation_coords(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]],
                                                 geojson: FeatureCollection) \
             -> gpd.GeoDataFrame | pd.DataFrame:
-        gdf = gpd.GeoDataFrame.from_features(geojson)
-        gdf = gdf.set_crs(4326)
+        geojson_dict = geojson.as_geo_dict()
+        gdf = gpd.GeoDataFrame.from_features(geojson_dict["features"])
+        gdf = gdf.set_crs("EPSG:4326")
         logger.info(f"Running investment calculation for scenario {scenario_id} and custom coords")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,

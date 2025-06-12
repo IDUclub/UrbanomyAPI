@@ -1,8 +1,7 @@
-from typing import Dict, Annotated
+from typing import Annotated
 
-from fastapi import APIRouter, FastAPI, Depends, Body
+from fastapi import APIRouter, FastAPI, Body
 
-from app.common.exceptions.http_exception_wrapper import http_exception
 from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDto
 from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsDto
 from app.urbanomy_api.modules.invest_potential_service import InvestmentPotentialService
@@ -10,11 +9,10 @@ from app.urbanomy_api.modules.invest_potential_service import InvestmentPotentia
 app = FastAPI()
 urbanomic_router = APIRouter()
 
-#TODO rename to_return and change it to bool
 
 @urbanomic_router.post("/calculate_investment_attractiveness")
 async def calculate_investment_attractiveness(
-    params: Annotated[InvestmentAttractivenessRequestDto, Body(...)],
+        params: Annotated[InvestmentAttractivenessRequestDto, Body(...)],
 ):
     benchmarks_dict = {
         **{k: v.dict() for k, v in params.residential.items()},
@@ -37,14 +35,12 @@ async def calculate_investment_attractiveness_functional_zones(
         **{k: v.dict() for k, v in params.residential.items()},
         **{k: v.dict() for k, v in params.non_residential.items()}
     }
-    try:
-        result = await InvestmentPotentialService.run_investment_calculation_fzones(
-            params.scenario_id,
-            params.as_geojson,
-            benchmarks_dict
-        )
-    except ValueError as e:
-        raise http_exception(400, str(e))
+
+    result = await InvestmentPotentialService.run_investment_calculation_fzones(
+        params.scenario_id,
+        params.as_geojson,
+        benchmarks_dict
+    )
 
     return result
 
@@ -53,11 +49,11 @@ async def calculate_investment_attractiveness_functional_zones(
 async def calculate_investment_attractiveness_by_coords(
         dto: Annotated[InvestmentAttractivenessCoordsDto, Body(...)],
 ):
-
     benchmarks_dict = {
         **{k: v.dict() for k, v in dto.residential.items()},
         **{k: v.dict() for k, v in dto.non_residential.items()}
     }
 
-    result = await InvestmentPotentialService.run_investment_calculation_coords(dto.scenario_id, dto.as_geojson, benchmarks_dict, dto.geometry)
+    result = await InvestmentPotentialService.run_investment_calculation_coords(dto.scenario_id, dto.as_geojson,
+                                                                                benchmarks_dict, dto.geometry)
     return result
