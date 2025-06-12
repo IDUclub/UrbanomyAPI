@@ -8,10 +8,11 @@ uvicorn~=0.34.3
 gunicorn
 requests~=2.32.3
 aiohttp~=3.12.7
-pydantic~=1.10.22
+geojson-pydantic<1.0
 geopandas~=1.1.0
 pandas~=2.2.3
-geojson_pydantic~=2.0.0
+pydantic~=1.10.22
+shapely~=2.1.1
 numpy
 pandera
 matplotlib

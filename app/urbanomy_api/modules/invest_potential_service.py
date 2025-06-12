@@ -163,9 +163,9 @@ class InvestmentPotentialService:
     async def generate_response(
             gdf_out: gpd.GeoDataFrame,
             summary: pd.DataFrame,
-            to_return: str
+            to_return: bool = False
     ) -> List[Dict[str, Any]]:
-        if to_return == "dataframe":
+        if to_return == False:
             df = summary.rename_axis("land_use_type").reset_index()
             records = df.to_dict(orient="records")
 
@@ -180,12 +180,12 @@ class InvestmentPotentialService:
                 cleaned.append(new_rec)
             return cleaned
 
-        if to_return == "geodataframe":
+        if to_return == True:
             geojson_str = gdf_out.to_crs(4326).to_json()
             return json.loads(geojson_str)
 
     @staticmethod
-    async def run_investment_calculation(scenario_id, to_return: str, benchmarks: dict[str, dict[str, any]]) \
+    async def run_investment_calculation(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
             -> gpd.GeoDataFrame | pd.DataFrame:
         logger.info(f"Running investment calculation for scenario {scenario_id}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
@@ -194,11 +194,11 @@ class InvestmentPotentialService:
         landuse_score_gdf = await InvestmentPotentialService.calculate_landuse_score(territory_values_gdf)
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(landuse_score_gdf,
                                                                                                 benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, to_return)
+        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
         return response
 
     @staticmethod
-    async def run_investment_calculation_fzones(scenario_id, to_return: str, benchmarks: dict[str, dict[str, any]]) \
+    async def run_investment_calculation_fzones(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
             -> gpd.GeoDataFrame | pd.DataFrame:
         logger.info(f"Running investment calculation for scenario {scenario_id}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
@@ -210,12 +210,12 @@ class InvestmentPotentialService:
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(
             mapped_zones_gdf,
             benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, to_return)
+        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
         return response
 
 
     @staticmethod
-    async def run_investment_calculation_coords(scenario_id, to_return: str, benchmarks: dict[str, dict[str, any]],
+    async def run_investment_calculation_coords(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]],
                                                 geojson: FeatureCollection) \
             -> gpd.GeoDataFrame | pd.DataFrame:
         gdf = gpd.GeoDataFrame.from_features(geojson)
@@ -229,5 +229,5 @@ class InvestmentPotentialService:
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(
             mapped_zones_gdf,
             benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, to_return)
+        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
         return response

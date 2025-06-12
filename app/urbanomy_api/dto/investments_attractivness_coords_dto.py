@@ -1,21 +1,22 @@
-from typing import Any, Dict
+from typing import Dict
 
 from pydantic import BaseModel, Field
 
-from app.urbanomy_api.dto.investment_attractivness_dto import benchmarks_demo
 from geojson_pydantic.features import FeatureCollection
 
+from app.urbanomy_api.dto.investment_attractivness_dto import ResidentialBenchmarkDto, NonResidentialBenchmarkDto, \
+    residential_demo, non_residential_demo
 
 class InvestmentAttractivenessCoordsDto(BaseModel):
     scenario_id: int = Field(..., example=198, description="Scenario ID")
-    to_return: str = Field(..., example="geodataframe", description="Which format to return")
-
-
-class InvestmentAttractivenessCoordsBody(BaseModel):
-    benchmarks: Dict[str, Dict[str, Any]] = Field(
-        ...,
-        example=benchmarks_demo,
-        description="Dictionary of benchmarks data for each land use category"
+    as_geojson: bool = Field(..., example=False, description="Which format to return")
+    residential: Dict[str, ResidentialBenchmarkDto] = Field(
+        default=residential_demo,
+        description="Эталонные параметры для жилых категорий"
+    )
+    non_residential: Dict[str, NonResidentialBenchmarkDto] = Field(
+        default=non_residential_demo,
+        description="Эталонные параметры для остальных категорий"
     )
     geometry: FeatureCollection = Field(
         ...,
@@ -46,3 +47,4 @@ class InvestmentAttractivenessCoordsBody(BaseModel):
             ]
         }
     )
+

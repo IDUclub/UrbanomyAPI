@@ -1,10 +1,10 @@
+from typing import Dict, Annotated
+
 from fastapi import APIRouter, FastAPI, Depends, Body
 
 from app.common.exceptions.http_exception_wrapper import http_exception
-from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessQueryDto, \
-    InvestmentAttractivenessBodyDto
-from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsBody, \
-    InvestmentAttractivenessCoordsDto
+from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDto
+from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsDto
 from app.urbanomy_api.modules.invest_potential_service import InvestmentPotentialService
 
 app = FastAPI()
@@ -14,27 +14,34 @@ urbanomic_router = APIRouter()
 
 @urbanomic_router.post("/calculate_investment_attractiveness")
 async def calculate_investment_attractiveness(
-        query: InvestmentAttractivenessQueryDto = Depends(),
-        body: InvestmentAttractivenessBodyDto = Body(...),
+    params: Annotated[InvestmentAttractivenessRequestDto, Body(...)],
 ):
-    try:
-        result = await InvestmentPotentialService.run_investment_calculation(
-            query.scenario_id, query.to_return, body.benchmarks
-        )
-    except ValueError as e:
-        raise http_exception(400, str(e))
+    benchmarks_dict = {
+        **{k: v.dict() for k, v in params.residential.items()},
+        **{k: v.dict() for k, v in params.non_residential.items()}
+    }
 
+    result = await InvestmentPotentialService.run_investment_calculation(
+        params.scenario_id,
+        params.as_geojson,
+        benchmarks_dict
+    )
     return result
 
 
 @urbanomic_router.post("/calculate_investment_attractiveness_functional_zones")
 async def calculate_investment_attractiveness_functional_zones(
-        query: InvestmentAttractivenessQueryDto = Depends(),
-        body: InvestmentAttractivenessBodyDto = Body(...)
+        params: Annotated[InvestmentAttractivenessRequestDto, Body(...)],
 ):
+    benchmarks_dict = {
+        **{k: v.dict() for k, v in params.residential.items()},
+        **{k: v.dict() for k, v in params.non_residential.items()}
+    }
     try:
         result = await InvestmentPotentialService.run_investment_calculation_fzones(
-            query.scenario_id, query.to_return, body.benchmarks
+            params.scenario_id,
+            params.as_geojson,
+            benchmarks_dict
         )
     except ValueError as e:
         raise http_exception(400, str(e))
@@ -44,13 +51,13 @@ async def calculate_investment_attractiveness_functional_zones(
 
 @urbanomic_router.post("/calculate_investment_attractiveness_coords")
 async def calculate_investment_attractiveness_by_coords(
-        dto: InvestmentAttractivenessCoordsDto = Depends(),
-        body: InvestmentAttractivenessCoordsBody = Body(...),
+        dto: Annotated[InvestmentAttractivenessCoordsDto, Body(...)],
 ):
-    scenario = dto.scenario_id
-    fmt = dto.to_return
-    benchmarks = body.benchmarks
-    geo = body.geometry
 
-    result = await InvestmentPotentialService.run_investment_calculation_coords(scenario, fmt, benchmarks, geo)
+    benchmarks_dict = {
+        **{k: v.dict() for k, v in dto.residential.items()},
+        **{k: v.dict() for k, v in dto.non_residential.items()}
+    }
+
+    result = await InvestmentPotentialService.run_investment_calculation_coords(dto.scenario_id, dto.as_geojson, benchmarks_dict, dto.geometry)
     return result
