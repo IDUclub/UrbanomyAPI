@@ -6,7 +6,6 @@ from urbanomy.methods.investment_potential import LandUseScoreAnalyzer, LAND_USE
     InvestmentAttractivenessAnalyzer
 import pandas as pd
 import geopandas as gpd
-import math
 
 from app.common.exceptions.http_exception_wrapper import http_exception
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
@@ -20,8 +19,14 @@ class InvestmentPotentialService:
             analyzer = LandUseScoreAnalyzer(weights=None)
             score_gdf = analyzer.compute_scores_long(gdf)
             logger.info(f"landuse score have been calculated")
-        except Exception:
-            raise http_exception(500, "Error calculating landuse score")
+        except Exception as e:
+            logger.exception("Error occurred while calculating landuse score")
+            raise http_exception(
+                status_code=500,
+                msg="Error calculating landuse score",
+                _input=gdf,
+                _detail={"error": str(e)}
+            )
         return score_gdf
 
     @staticmethod
@@ -54,8 +59,14 @@ class InvestmentPotentialService:
                 ],
                 axis=1
             )
-        except Exception:
-            raise http_exception(500, "Error adjusting indicator values")
+        except Exception as e:
+            logger.exception("Error adjusting indicator values")
+            raise http_exception(
+                status_code=500,
+                msg="Error adjusting indicator values",
+                _input=gdf,
+                _detail={"error": str(e)}
+            )
 
         records = [item for sublist in list_of_lists for item in sublist]
 
@@ -68,7 +79,7 @@ class InvestmentPotentialService:
 
         long_df = pd.DataFrame(records)
         long_gdf = gpd.GeoDataFrame(long_df, geometry="geometry", crs=gdf.crs)
-        logger.info("Indicator values fetched successfully")
+        logger.info(f"Indicator values fetched successfully for scenario ID {scenario_id}")
         return long_gdf.to_crs(long_gdf.estimate_utm_crs()).reset_index(drop=True)
 
     @staticmethod
@@ -153,7 +164,7 @@ class InvestmentPotentialService:
             for rec in records:
                 new_rec = {}
                 for k, v in rec.items():
-                    if isinstance(v, float) and math.isnan(v):
+                    if isinstance(v, float) and pd.isna(v):
                         new_rec[k] = None
                     else:
                         new_rec[k] = v
@@ -167,7 +178,10 @@ class InvestmentPotentialService:
     @staticmethod
     async def run_investment_calculation(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
             -> gpd.GeoDataFrame | pd.DataFrame:
-        logger.info(f"Running investment calculation for scenario {scenario_id}")
+        logger.info(f"Running investment calculation "
+                    f"for scenario {scenario_id}, "
+                    f"as_geojson={as_geojson}, "
+                    f"benchmarks={benchmarks}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
         territory_values_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id,
                                                                                                territory_gdf)
@@ -203,7 +217,10 @@ class InvestmentPotentialService:
         geojson_dict = geojson.as_geo_dict()
         gdf = gpd.GeoDataFrame.from_features(geojson_dict["features"])
         gdf = gdf.set_crs("EPSG:4326")
-        logger.info(f"Running investment calculation for scenario {scenario_id} and custom coords")
+        logger.info(f"Running investment calculation "
+                    f"for scenario {scenario_id}, "
+                    f"as_geojson={as_geojson}, "
+                    f"benchmarks={benchmarks}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
                                                                                             as_long=True)
