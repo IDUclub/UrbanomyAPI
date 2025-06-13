@@ -42,7 +42,7 @@ class BenchmarksDto(BaseModel):
     agriculture: NonResidentialBenchmarkDtoPrimitive
     transport: NonResidentialBenchmarkDtoPrimitive
 
-    class Config:
+    class BenchmarksConfig:
         json_schema_extra = {
             "example": {
                 **residential_demo,
