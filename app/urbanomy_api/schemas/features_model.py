@@ -1,4 +1,5 @@
-from typing import Any, Optional, Self
+from typing import Any, Optional
+from typing_extensions import Self
 from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import Literal, List, Dict
 import shapely
@@ -108,7 +109,7 @@ class Feature(BaseModel):
     geometry: PolygonalGeometry
     properties: Dict[str, Any] = Field(
         default_factory=dict,
-        examples=[{"zone_type_id": 5}]
+        examples=[{"zone_type_id": 1}]
     )
 
     def as_dict(self) -> dict:
