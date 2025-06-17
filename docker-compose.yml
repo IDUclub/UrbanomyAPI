@@ -1,7 +1,7 @@
 version: '1.0'
 
 services:
-  EffectsAPI:
+  UrbanomyAPI:
     image: urbanomicapi:dev
     build:
       context: .
