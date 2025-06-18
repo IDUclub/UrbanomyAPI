@@ -30,6 +30,7 @@ class NonResidentialBenchmarkDtoPrimitive(BaseModel):
 
 
 class BenchmarksDto(BaseModel):
+    residential: ResidentialBenchmarkDtoPrimitive
     residential_individual: ResidentialBenchmarkDtoPrimitive
     residential_lowrise: ResidentialBenchmarkDtoPrimitive
     residential_midrise: ResidentialBenchmarkDtoPrimitive

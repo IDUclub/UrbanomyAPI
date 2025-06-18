@@ -1,7 +1,7 @@
 fastapi~=0.115.12
 aiofiles~=24.1.0
 aiohttp~=3.12.9
-git+https://github.com/Mvin8/Urbanomy.git@dev
+git+https://github.com/Mvin8/Urbanomy.git@feat/api
 idu-config
 loguru>=0.7.2,<0.8.0
 uvicorn~=0.34.3

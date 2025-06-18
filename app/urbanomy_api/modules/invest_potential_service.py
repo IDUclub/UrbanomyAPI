@@ -1,5 +1,6 @@
 import json
 from typing import Dict, Any, List
+import math
 
 from loguru import logger
 from urbanomy.methods.investment_potential import LandUseScoreAnalyzer, LAND_USE_TO_POTENTIAL_COLUMN, \
@@ -43,6 +44,16 @@ class InvestmentPotentialService:
         attrs = {ind['indicator']['name_full']: ind['value'] for ind in indicators}
         for name, value in attrs.items():
             gdf[name] = value
+
+        columns = [
+            "Потенциал развития среднеэтажной жилой застройки",
+            "Потенциал развития многоэтажной жилой застройки",
+            "Потенциал развития малоэтажной жилой застройки",
+            "Потенциал развития жилой застройки типа ИЖС"
+        ]
+        gdf['Потенциал развития жилой застройки'] = gdf[columns].mean(axis=1)
+        gdf['Потенциал развития жилой застройки'] = math.ceil(gdf['Потенциал развития жилой застройки'])
+
 
         if not as_long:
             return gdf.to_crs(gdf.estimate_utm_crs())
@@ -99,15 +110,15 @@ class InvestmentPotentialService:
             score_gdf: gpd.GeoDataFrame,
             zones_gdf: gpd.GeoDataFrame
     ) -> gpd.GeoDataFrame:
-        # TODO update zone mapping when Max adds 'residetial' type
 
         try:
             ip_map: Dict[str, float] = score_gdf.set_index("ip_type")["ip_value"].to_dict()
             zone_map: Dict[str, int] = {
                 "residential_individual": 10,
                 "residential_lowrise": 11,
-                "residential_midrise": 1,
+                "residential_midrise": 12,
                 "residential_multistorey": 13,
+                "residential": 1,
                 "business": 7,
                 "recreation": 2,
                 "special": 3,
@@ -124,6 +135,7 @@ class InvestmentPotentialService:
             "residential_lowrise",
             "residential_midrise",
             "residential_multistorey",
+            "residential"
         ]
         max_res_val = max(ip_map[k] for k in residential_keys if k in ip_map)
 

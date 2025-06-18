@@ -1,5 +1,14 @@
 {
   "residential_demo": {
+    "residential": {
+        "density": 0.25,
+        "land_cost": 1500,
+        "cost_build": 45000,
+        "price_sale": 95000,
+        "construction_years": 2,
+        "sale_years": 3,
+        "opex_rate": 800
+    },
     "residential_individual": {
       "density": 0.25,
       "land_cost": 1500,
