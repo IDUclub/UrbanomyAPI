@@ -9,6 +9,7 @@ import pandas as pd
 import geopandas as gpd
 
 from app.common.exceptions.http_exception_wrapper import http_exception
+from app.urbanomy_api.constants.constants import zone_mapping
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
 from app.urbanomy_api.schemas.features_model import FeatureCollection
 
@@ -52,8 +53,7 @@ class InvestmentPotentialService:
             "Потенциал развития жилой застройки типа ИЖС"
         ]
         gdf['Потенциал развития жилой застройки'] = gdf[columns].mean(axis=1)
-        gdf['Потенциал развития жилой застройки'] = math.ceil(gdf['Потенциал развития жилой застройки'])
-
+        gdf['Потенциал развития жилой застройки'] = gdf['Потенциал развития жилой застройки'].apply(math.ceil)
 
         if not as_long:
             return gdf.to_crs(gdf.estimate_utm_crs())
@@ -113,19 +113,8 @@ class InvestmentPotentialService:
 
         try:
             ip_map: Dict[str, float] = score_gdf.set_index("ip_type")["ip_value"].to_dict()
-            zone_map: Dict[str, int] = {
-                "residential_individual": 10,
-                "residential_lowrise": 11,
-                "residential_midrise": 12,
-                "residential_multistorey": 13,
-                "residential": 1,
-                "business": 7,
-                "recreation": 2,
-                "special": 3,
-                "industrial": 4,
-                "agriculture": 5,
-                "transport": 6
-            }
+            zone_map: Dict[str, int] = zone_mapping
+
             zone_to_ip = {v: k for k, v in zone_map.items()}
         except Exception:
             raise http_exception(500, "Error mapping zones")
@@ -170,6 +159,7 @@ class InvestmentPotentialService:
     ) -> List[Dict[str, Any]]:
         if as_geojson == False:
             df = summary.rename_axis("land_use_type").reset_index()
+            df["land_use_type_id"] = df["land_use_type"].map(zone_mapping).astype("Int64")
             records = df.to_dict(orient="records")
 
             cleaned = []
@@ -184,7 +174,10 @@ class InvestmentPotentialService:
             return cleaned
 
         if as_geojson == True:
-            geojson_str = gdf_out.to_crs(4326).to_json()
+            gdf = gdf_out.to_crs(4326)
+            gdf = gdf["ip_type"].rename("land_use_type")
+            gdf["land_use_type_id"] = gdf["ip_type"].map(zone_mapping).astype("Int64")
+            geojson_str = gdf.to_json()
             return json.loads(geojson_str)
 
     @staticmethod
