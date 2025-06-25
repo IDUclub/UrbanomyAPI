@@ -1,52 +1,50 @@
 import json
-from pydantic import BaseModel, Field
+from pathlib import Path
+from typing import Optional
 
-with open("app/urbanomy_api/schemas/benchmarks.json", "r") as et:
+from pydantic import BaseModel
+
+CURRENT_DIR = Path(__file__).resolve().parent
+BENCHMARKS_PATH = CURRENT_DIR.parent / "schemas" / "benchmarks.json"
+
+with BENCHMARKS_PATH.open("r", encoding="utf-8") as et:
     benchmarks = json.load(et)
 
 residential_demo = benchmarks["residential_demo"]
 non_residential_demo = benchmarks["non_residential_demo"]
 
 
-class ResidentialBenchmarkDtoPrimitive(BaseModel):
-    density: float = Field(..., example=0.25)
-    land_cost: int = Field(..., example=1500)
-    cost_build: int = Field(..., example=48000)
-    price_sale: int = Field(..., example=92000)
-    construction_years: int = Field(..., example=2)
-    sale_years: int = Field(..., example=3)
-    opex_rate: int = Field(..., example=800)
+class ResidentialBenchmark(BaseModel):
+    density: float
+    land_cost: int
+    cost_build: int
+    price_sale: int
+    construction_years: int
+    sale_years: int
+    opex_rate: int
 
 
-class NonResidentialBenchmarkDtoPrimitive(BaseModel):
-    density: float = Field(..., example=2.0)
-    land_cost: int = Field(..., example=2800)
-    cost_build: int = Field(..., example=55000)
-    rent_annual: int = Field(..., example=14000)
-    rent_years: int = Field(..., example=12)
-    occupancy: float = Field(..., example=0.85)
-    construction_years: int = Field(..., example=3)
-    opex_rate: int = Field(..., example=1300)
+class NonResidentialBenchmark(BaseModel):
+    density: float
+    land_cost: int
+    cost_build: int
+    rent_annual: int
+    rent_years: int
+    occupancy: float
+    construction_years: int
+    opex_rate: int
 
 
-class BenchmarksDto(BaseModel):
-    residential: ResidentialBenchmarkDtoPrimitive
-    residential_individual: ResidentialBenchmarkDtoPrimitive
-    residential_lowrise: ResidentialBenchmarkDtoPrimitive
-    residential_midrise: ResidentialBenchmarkDtoPrimitive
-    residential_multistorey: ResidentialBenchmarkDtoPrimitive
+class BenchmarksDTO(BaseModel):
+    residential: Optional[ResidentialBenchmark] = None
+    residential_individual: Optional[ResidentialBenchmark] = None
+    residential_lowrise: Optional[ResidentialBenchmark] = None
+    residential_midrise: Optional[ResidentialBenchmark] = None
+    residential_multistorey: Optional[ResidentialBenchmark] = None
 
-    business: NonResidentialBenchmarkDtoPrimitive
-    recreation: NonResidentialBenchmarkDtoPrimitive
-    special: NonResidentialBenchmarkDtoPrimitive
-    industrial: NonResidentialBenchmarkDtoPrimitive
-    agriculture: NonResidentialBenchmarkDtoPrimitive
-    transport: NonResidentialBenchmarkDtoPrimitive
-
-    class BenchmarksConfig:
-        json_schema_extra = {
-            "example": {
-                **residential_demo,
-                **non_residential_demo
-            }
-        }
+    business: Optional[NonResidentialBenchmark] = None
+    recreation: Optional[NonResidentialBenchmark] = None
+    special: Optional[NonResidentialBenchmark] = None
+    industrial: Optional[NonResidentialBenchmark] = None
+    agriculture: Optional[NonResidentialBenchmark] = None
+    transport: Optional[NonResidentialBenchmark] = None
