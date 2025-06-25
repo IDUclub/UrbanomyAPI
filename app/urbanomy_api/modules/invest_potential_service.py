@@ -9,6 +9,8 @@ import pandas as pd
 import geopandas as gpd
 
 from app.common.exceptions.http_exception_wrapper import http_exception
+from app.urbanomy_api.constants.zone_mapping import zone_mapping
+
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
 from app.urbanomy_api.schemas.features_model import FeatureCollection
 
@@ -52,8 +54,7 @@ class InvestmentPotentialService:
             "Потенциал развития жилой застройки типа ИЖС"
         ]
         gdf['Потенциал развития жилой застройки'] = gdf[columns].mean(axis=1)
-        gdf['Потенциал развития жилой застройки'] = math.ceil(gdf['Потенциал развития жилой застройки'])
-
+        gdf['Потенциал развития жилой застройки'] = gdf['Потенциал развития жилой застройки'].apply(math.ceil)
 
         if not as_long:
             return gdf.to_crs(gdf.estimate_utm_crs())
@@ -113,22 +114,11 @@ class InvestmentPotentialService:
 
         try:
             ip_map: Dict[str, float] = score_gdf.set_index("ip_type")["ip_value"].to_dict()
-            zone_map: Dict[str, int] = {
-                "residential_individual": 10,
-                "residential_lowrise": 11,
-                "residential_midrise": 12,
-                "residential_multistorey": 13,
-                "residential": 1,
-                "business": 7,
-                "recreation": 2,
-                "special": 3,
-                "industrial": 4,
-                "agriculture": 5,
-                "transport": 6
-            }
+            zone_map: Dict[str, int] = zone_mapping
+
             zone_to_ip = {v: k for k, v in zone_map.items()}
-        except Exception:
-            raise http_exception(500, "Error mapping zones")
+        except Exception as e:
+            raise http_exception(500, "Error mapping zones", str(e))
 
         residential_keys = [
             "residential_individual",
@@ -168,24 +158,25 @@ class InvestmentPotentialService:
             summary: pd.DataFrame,
             as_geojson: bool = False
     ) -> List[Dict[str, Any]]:
-        if as_geojson == False:
+        if not as_geojson:
             df = summary.rename_axis("land_use_type").reset_index()
+            df["land_use_type_id"] = df["land_use_type"].map(zone_mapping).astype("Int64")
             records = df.to_dict(orient="records")
 
             cleaned = []
             for rec in records:
-                new_rec = {}
-                for k, v in rec.items():
-                    if isinstance(v, float) and pd.isna(v):
-                        new_rec[k] = None
-                    else:
-                        new_rec[k] = v
+                new_rec = {
+                    k: (None if isinstance(v, float) and pd.isna(v) else v)
+                    for k, v in rec.items()
+                }
                 cleaned.append(new_rec)
             return cleaned
 
-        if as_geojson == True:
-            geojson_str = gdf_out.to_crs(4326).to_json()
-            return json.loads(geojson_str)
+        gdf = gdf_out.to_crs(4326).copy()
+        gdf["land_use_type_id"] = gdf["ip_type"].map(zone_mapping).astype("Int64")
+        gdf = gdf.rename(columns={"ip_type": "land_use_type_name"})
+        geojson_str = gdf.to_json()
+        return json.loads(geojson_str)
 
     @staticmethod
     async def run_investment_calculation(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
@@ -204,8 +195,10 @@ class InvestmentPotentialService:
         return response
 
     @staticmethod
-    async def run_investment_calculation_fzones(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
-            -> gpd.GeoDataFrame | pd.DataFrame:
+    async def run_investment_calculation_fzones(
+            scenario_id, as_geojson: bool,
+            benchmarks: dict[str, dict[str, any]],
+            source: str) -> gpd.GeoDataFrame | pd.DataFrame:
         logger.info(f"Running investment calculation "
                     f"for scenario {scenario_id}, "
                     f"as_geojson={as_geojson}, "
@@ -213,7 +206,7 @@ class InvestmentPotentialService:
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
                                                                                             as_long=True)
-        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id)
+        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id, source=source)
         mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, functional_zones_gdf)
         mapped_zones_gdf = mapped_zones_gdf.to_crs(mapped_zones_gdf.estimate_utm_crs())
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(
