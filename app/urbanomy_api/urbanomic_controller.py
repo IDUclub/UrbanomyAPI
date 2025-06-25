@@ -2,9 +2,9 @@ from typing import Annotated, Dict, Any
 
 from fastapi import APIRouter, FastAPI, Depends
 
-from app.urbanomy_api.dto.InvestmentAttractivnessFzonesRequestDto import InvestmentAttractivenessFzonesRequestDto
+from app.urbanomy_api.dto.InvestmentAttractivnessFzonesRequestDto import InvestmentAttractivenessFunctionalZonesRequestDTO
 from app.urbanomy_api.dto.benchmarks_dto import residential_demo, non_residential_demo
-from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDto
+from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDTO
 from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsDto
 from app.urbanomy_api.modules.invest_potential_service import InvestmentPotentialService
 
@@ -14,7 +14,7 @@ urbanomic_router = APIRouter()
 
 @urbanomic_router.post("/calculate_investment_attractiveness")
 async def calculate_investment_attractiveness(
-    params: Annotated[InvestmentAttractivenessRequestDto, Depends(InvestmentAttractivenessRequestDto)]
+    params: Annotated[InvestmentAttractivenessRequestDTO, Depends(InvestmentAttractivenessRequestDTO)]
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation(
@@ -27,7 +27,7 @@ async def calculate_investment_attractiveness(
 
 @urbanomic_router.post("/calculate_investment_attractiveness_functional_zones")
 async def calculate_investment_attractiveness_functional_zones(
-        params: Annotated[InvestmentAttractivenessFzonesRequestDto, Depends(InvestmentAttractivenessFzonesRequestDto)],
+        params: Annotated[InvestmentAttractivenessFunctionalZonesRequestDTO, Depends(InvestmentAttractivenessFunctionalZonesRequestDTO)],
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_fzones(

@@ -9,7 +9,8 @@ import pandas as pd
 import geopandas as gpd
 
 from app.common.exceptions.http_exception_wrapper import http_exception
-from app.urbanomy_api.constants.constants import zone_mapping
+from app.urbanomy_api.constants.zone_mapping import zone_mapping
+
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
 from app.urbanomy_api.schemas.features_model import FeatureCollection
 
@@ -116,8 +117,8 @@ class InvestmentPotentialService:
             zone_map: Dict[str, int] = zone_mapping
 
             zone_to_ip = {v: k for k, v in zone_map.items()}
-        except Exception:
-            raise http_exception(500, "Error mapping zones")
+        except Exception as e:
+            raise http_exception(500, "Error mapping zones", str(e))
 
         residential_keys = [
             "residential_individual",
@@ -157,28 +158,25 @@ class InvestmentPotentialService:
             summary: pd.DataFrame,
             as_geojson: bool = False
     ) -> List[Dict[str, Any]]:
-        if as_geojson == False:
+        if not as_geojson:
             df = summary.rename_axis("land_use_type").reset_index()
             df["land_use_type_id"] = df["land_use_type"].map(zone_mapping).astype("Int64")
             records = df.to_dict(orient="records")
 
             cleaned = []
             for rec in records:
-                new_rec = {}
-                for k, v in rec.items():
-                    if isinstance(v, float) and pd.isna(v):
-                        new_rec[k] = None
-                    else:
-                        new_rec[k] = v
+                new_rec = {
+                    k: (None if isinstance(v, float) and pd.isna(v) else v)
+                    for k, v in rec.items()
+                }
                 cleaned.append(new_rec)
             return cleaned
 
-        if as_geojson == True:
-            gdf = gdf_out.to_crs(4326).copy()
-            gdf["land_use_type_id"] = gdf["ip_type"].map(zone_mapping).astype("Int64")
-            gdf = gdf.rename(columns={"ip_type": "land_use_type_name"})
-            geojson_str = gdf.to_json()
-            return json.loads(geojson_str)
+        gdf = gdf_out.to_crs(4326).copy()
+        gdf["land_use_type_id"] = gdf["ip_type"].map(zone_mapping).astype("Int64")
+        gdf = gdf.rename(columns={"ip_type": "land_use_type_name"})
+        geojson_str = gdf.to_json()
+        return json.loads(geojson_str)
 
     @staticmethod
     async def run_investment_calculation(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
@@ -200,8 +198,7 @@ class InvestmentPotentialService:
     async def run_investment_calculation_fzones(
             scenario_id, as_geojson: bool,
             benchmarks: dict[str, dict[str, any]],
-            source: str) \
-            -> gpd.GeoDataFrame | pd.DataFrame:
+            source: str) -> gpd.GeoDataFrame | pd.DataFrame:
         logger.info(f"Running investment calculation "
                     f"for scenario {scenario_id}, "
                     f"as_geojson={as_geojson}, "

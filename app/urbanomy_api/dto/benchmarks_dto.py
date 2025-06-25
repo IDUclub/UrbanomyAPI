@@ -1,9 +1,13 @@
 import json
+from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel
 
-with open("app/urbanomy_api/schemas/benchmarks.json", "r") as et:
+CURRENT_DIR = Path(__file__).resolve().parent
+BENCHMARKS_PATH = CURRENT_DIR.parent / "schemas" / "benchmarks.json"
+
+with BENCHMARKS_PATH.open("r", encoding="utf-8") as et:
     benchmarks = json.load(et)
 
 residential_demo = benchmarks["residential_demo"]
@@ -31,7 +35,7 @@ class NonResidentialBenchmark(BaseModel):
     opex_rate: int
 
 
-class BenchmarksDto(BaseModel):
+class BenchmarksDTO(BaseModel):
     residential: Optional[ResidentialBenchmark] = None
     residential_individual: Optional[ResidentialBenchmark] = None
     residential_lowrise: Optional[ResidentialBenchmark] = None

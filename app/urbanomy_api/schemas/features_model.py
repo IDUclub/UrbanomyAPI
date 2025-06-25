@@ -7,7 +7,7 @@ import shapely.geometry as geom
 import json
 
 from app.common.exceptions.http_exception_wrapper import http_exception
-from app.urbanomy_api.constants.constants import VALID_ZONE_TYPE_IDS
+from app.urbanomy_api.constants.zone_mapping import VALID_ZONE_TYPE_IDS
 
 EXAMPLE_GEOMETRY: Dict[str, Any] = {
     "type": "Polygon",
@@ -132,7 +132,7 @@ class Feature(BaseModel):
         if z not in VALID_ZONE_TYPE_IDS:
             allowed = ", ".join(map(str, sorted(VALID_ZONE_TYPE_IDS)))
             raise http_exception(
-                422,
+                400,
                 f"Invalid zone_type_id",
                 z,
                 f"Valid zone_type_ids: {allowed}"
