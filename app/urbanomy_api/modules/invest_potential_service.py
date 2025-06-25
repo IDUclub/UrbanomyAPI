@@ -174,9 +174,9 @@ class InvestmentPotentialService:
             return cleaned
 
         if as_geojson == True:
-            gdf = gdf_out.to_crs(4326)
-            gdf = gdf["ip_type"].rename("land_use_type")
+            gdf = gdf_out.to_crs(4326).copy()
             gdf["land_use_type_id"] = gdf["ip_type"].map(zone_mapping).astype("Int64")
+            gdf = gdf.rename(columns={"ip_type": "land_use_type_name"})
             geojson_str = gdf.to_json()
             return json.loads(geojson_str)
 
@@ -197,7 +197,10 @@ class InvestmentPotentialService:
         return response
 
     @staticmethod
-    async def run_investment_calculation_fzones(scenario_id, as_geojson: bool, benchmarks: dict[str, dict[str, any]]) \
+    async def run_investment_calculation_fzones(
+            scenario_id, as_geojson: bool,
+            benchmarks: dict[str, dict[str, any]],
+            source: str) \
             -> gpd.GeoDataFrame | pd.DataFrame:
         logger.info(f"Running investment calculation "
                     f"for scenario {scenario_id}, "
@@ -206,7 +209,7 @@ class InvestmentPotentialService:
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
                                                                                             as_long=True)
-        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id)
+        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id, source=source)
         mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, functional_zones_gdf)
         mapped_zones_gdf = mapped_zones_gdf.to_crs(mapped_zones_gdf.estimate_utm_crs())
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(

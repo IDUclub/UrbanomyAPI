@@ -2,6 +2,8 @@ from typing import Annotated, Dict, Any
 
 from fastapi import APIRouter, FastAPI, Depends
 
+from app.urbanomy_api.dto.InvestmentAttractivnessFzonesRequestDto import InvestmentAttractivenessFzonesRequestDto
+from app.urbanomy_api.dto.benchmarks_dto import residential_demo, non_residential_demo
 from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDto
 from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsDto
 from app.urbanomy_api.modules.invest_potential_service import InvestmentPotentialService
@@ -25,13 +27,14 @@ async def calculate_investment_attractiveness(
 
 @urbanomic_router.post("/calculate_investment_attractiveness_functional_zones")
 async def calculate_investment_attractiveness_functional_zones(
-        params: Annotated[InvestmentAttractivenessRequestDto, Depends(InvestmentAttractivenessRequestDto)],
+        params: Annotated[InvestmentAttractivenessFzonesRequestDto, Depends(InvestmentAttractivenessFzonesRequestDto)],
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_fzones(
         params.scenario_id,
         params.as_geojson,
-        benchmarks_dict
+        benchmarks_dict,
+        params.source
     )
 
     return result
@@ -48,3 +51,10 @@ async def calculate_investment_attractiveness_by_coords(
         benchmarks_dict,
         params.geometry)
     return result
+
+
+@urbanomic_router.get("/get_benchmarks_defaults")
+async def get_benchmarks_defaults():
+    benchmarks_dict = {**residential_demo, **non_residential_demo}
+    return benchmarks_dict
+

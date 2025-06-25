@@ -7,6 +7,7 @@ import shapely.geometry as geom
 import json
 
 from app.common.exceptions.http_exception_wrapper import http_exception
+from app.urbanomy_api.constants.constants import VALID_ZONE_TYPE_IDS
 
 EXAMPLE_GEOMETRY: Dict[str, Any] = {
     "type": "Polygon",
@@ -125,8 +126,17 @@ class Feature(BaseModel):
     def must_have_zone_type_id(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         if "zone_type_id" not in v:
             raise http_exception(422, "each Feature.properties must include a 'zone_type_id'")
-        if not isinstance(v["zone_type_id"], int):
+        z = v["zone_type_id"]
+        if not isinstance(z, int):
             raise http_exception(422, "'zone_type_id' must be an integer")
+        if z not in VALID_ZONE_TYPE_IDS:
+            allowed = ", ".join(map(str, sorted(VALID_ZONE_TYPE_IDS)))
+            raise http_exception(
+                422,
+                f"Invalid zone_type_id",
+                z,
+                f"Valid zone_type_ids: {allowed}"
+            )
         return v
 
 
