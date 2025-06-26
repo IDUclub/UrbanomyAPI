@@ -2,7 +2,9 @@ from typing import Annotated, Dict, Any
 
 from fastapi import APIRouter, FastAPI, Depends
 
-from app.urbanomy_api.dto.InvestmentAttractivnessFzonesRequestDto import InvestmentAttractivenessFunctionalZonesRequestDTO
+from app.common.auth.auth import verify_token
+from app.urbanomy_api.dto.InvestmentAttractivnessFzonesRequestDto import \
+    InvestmentAttractivenessFunctionalZonesRequestDTO
 from app.urbanomy_api.dto.benchmarks_dto import residential_demo, non_residential_demo
 from app.urbanomy_api.dto.investment_attractivness_dto import InvestmentAttractivenessRequestDTO
 from app.urbanomy_api.dto.investments_attractivness_coords_dto import InvestmentAttractivenessCoordsDto
@@ -14,27 +16,32 @@ urbanomic_router = APIRouter()
 
 @urbanomic_router.post("/calculate_investment_attractiveness")
 async def calculate_investment_attractiveness(
-    params: Annotated[InvestmentAttractivenessRequestDTO, Depends(InvestmentAttractivenessRequestDTO)]
+        params: Annotated[InvestmentAttractivenessRequestDTO, Depends(InvestmentAttractivenessRequestDTO)],
+        token: str = Depends(verify_token)
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation(
         params.scenario_id,
         params.as_geojson,
-        benchmarks_dict
+        benchmarks_dict,
+        token
     )
     return result
 
 
 @urbanomic_router.post("/calculate_investment_attractiveness_functional_zones")
 async def calculate_investment_attractiveness_functional_zones(
-        params: Annotated[InvestmentAttractivenessFunctionalZonesRequestDTO, Depends(InvestmentAttractivenessFunctionalZonesRequestDTO)],
+        params: Annotated[InvestmentAttractivenessFunctionalZonesRequestDTO, Depends(
+            InvestmentAttractivenessFunctionalZonesRequestDTO)],
+        token: str = Depends(verify_token)
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_fzones(
         params.scenario_id,
         params.as_geojson,
         benchmarks_dict,
-        params.source
+        params.source,
+        token
     )
 
     return result
@@ -43,13 +50,15 @@ async def calculate_investment_attractiveness_functional_zones(
 @urbanomic_router.post("/calculate_investment_attractiveness_coords")
 async def calculate_investment_attractiveness_by_coords(
         params: Annotated[InvestmentAttractivenessCoordsDto, Depends(InvestmentAttractivenessCoordsDto)],
+        token: str = Depends(verify_token)
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_coords(
         params.scenario_id,
         params.as_geojson,
         benchmarks_dict,
-        params.geometry)
+        params.geometry,
+        token)
     return result
 
 
@@ -57,4 +66,3 @@ async def calculate_investment_attractiveness_by_coords(
 async def get_benchmarks_defaults():
     benchmarks_dict = {**residential_demo, **non_residential_demo}
     return benchmarks_dict
-
