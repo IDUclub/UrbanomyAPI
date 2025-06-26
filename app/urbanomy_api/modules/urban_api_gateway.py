@@ -7,48 +7,66 @@ from app.dependencies import urban_api_handler, http_exception
 
 
 class UrbanAPIGateway:
+    SOURCE_PRIORITY = ["OSM", "PZZ", "User"]
+
     @staticmethod
     async def _form_source_params(sources: list[dict]) -> dict:
-        if len(sources) == 1:
-            return sources[0]
+        max_year = max(s["year"] for s in sources)
+        subset = [s for s in sources if s["year"] == max_year]
 
-        source_names = [item["source"] for item in sources]
-        df_sources = pd.DataFrame(sources)
-
-        if "OSM" in source_names:
-            idx = df_sources[df_sources["source"] == "OSM"]["year"].idxmax()
-            return df_sources.loc[idx].to_dict()
-
-        if "PZZ" in source_names:
-            idx = df_sources[df_sources["source"] == "PZZ"]["year"].idxmax()
-            return df_sources.loc[idx].to_dict()
-
-        idx = df_sources[df_sources["source"] == "User"]["year"].idxmax()
-        return df_sources.loc[idx].to_dict()
-
-    async def get_functional_zone_sources(
-            self,
-            scenario_id: int,
-            source: str = None
-    ) -> dict:
-
-        endpoint = f"/api/v1/scenarios/{scenario_id}/functional_zone_sources"
-        response = await urban_api_handler.get(endpoint_url=endpoint)
-
-        if not response:
-            raise http_exception(404, f"No functional zone sources found for scenario_id", scenario_id)
-
-        if source:
-            source_data = next((s for s in response if s.get("source") == source), None)
-            if not source_data:
-                raise http_exception(404, f"No data found for the specified source", source)
-            return source_data
-
-        best = await self._form_source_params(response)
-        return best
+        for src in UrbanAPIGateway.SOURCE_PRIORITY:
+            for s in subset:
+                if s["source"] == src:
+                    return s
+        return subset[0]
 
     @staticmethod
-    async def get_functional_zones(scenario_id: int, is_context: bool = False, source: str = None) -> gpd.GeoDataFrame:
+    async def get_functional_zone_sources(
+            scenario_id: int,
+            source: str = None,
+            token: str = None,
+            year: int = None,
+    ) -> dict:
+        endpoint = f"/api/v1/scenarios/{scenario_id}/functional_zone_sources"
+        response = await urban_api_handler.get(
+            endpoint_url=endpoint,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        if not response:
+            raise http_exception(404, f"No functional zone sources found for scenario_id {scenario_id}")
+
+        if source and year is not None:
+            matches = [
+                s for s in response
+                if s.get("source") == source and s.get("year") == year
+            ]
+            if not matches:
+                raise http_exception(404,
+                                     f"No functional zone source for source={source} and year={year}"
+                                     )
+            return matches[0]
+
+        if source:
+            subset = [s for s in response if s.get("source") == source]
+            if not subset:
+                raise http_exception(404, f"No functional zone data for source={source}")
+            return max(subset, key=lambda s: s["year"])
+
+        if year is not None:
+            subset = [s for s in response if s.get("year") == year]
+            if not subset:
+                raise http_exception(404, f"No functional zone data for year={year}")
+            return await UrbanAPIGateway._form_source_params(subset)
+
+        return await UrbanAPIGateway._form_source_params(response)
+
+    @staticmethod
+    async def get_functional_zones(
+            scenario_id: int,
+            is_context: bool = False,
+            source: str = None,
+            token: str = None,
+            year: int = None) -> gpd.GeoDataFrame:
         """
         Fetches functional zones for a project with an optional context flag and source selection.
 
@@ -63,7 +81,7 @@ class UrbanAPIGateway:
         Raises:
         http_exception: If the response is empty or the specified source is not available.
         """
-        source_data = await UrbanAPIGateway.get_functional_zone_sources(scenario_id, source)
+        source_data = await UrbanAPIGateway.get_functional_zone_sources(scenario_id, source, token, year)
 
         if not source_data or "source" not in source_data or "year" not in source_data:
             raise http_exception(404, "No valid source found for the given scenario ID", scenario_id)
@@ -74,7 +92,9 @@ class UrbanAPIGateway:
         endpoint = (f"/api/v1/scenarios/{scenario_id}/functional_zones?year={year}&source={source}"
                     )
 
-        response = await urban_api_handler.get(endpoint)
+        response = await urban_api_handler.get(endpoint, headers={
+            "Authorization": f"Bearer {token}"""
+        })
         features = response.get("features", response)
         landuse_polygons = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
 
@@ -109,9 +129,11 @@ class UrbanAPIGateway:
         return landuse_polygons
 
     @staticmethod
-    async def get_project_id(scenario_id: int) -> int:
+    async def get_project_id(scenario_id: int, token: str = None) -> int:
         endpoint = f"/api/v1/scenarios/{scenario_id}"
-        response = await urban_api_handler.get(endpoint)
+        response = await urban_api_handler.get(endpoint, headers={
+            "Authorization": f"Bearer {token}"""
+        })
         try:
             project_id = response.get("project", {}).get("project_id")
         except Exception:
@@ -120,11 +142,13 @@ class UrbanAPIGateway:
         return project_id
 
     @staticmethod
-    async def get_territory(scenario_id: int) -> gpd.GeoDataFrame:
-        project_id = await UrbanAPIGateway.get_project_id(scenario_id)
+    async def get_territory(scenario_id: int, token: str = None) -> gpd.GeoDataFrame:
+        project_id = await UrbanAPIGateway.get_project_id(scenario_id, token)
         endpoint = f"/api/v1/projects/{project_id}/territory"
         try:
-            response = await urban_api_handler.get(endpoint)
+            response = await urban_api_handler.get(endpoint, headers={
+                "Authorization": f"Bearer {token}"""
+            })
         except Exception:
             raise http_exception(404, "No territory found for the given scenario ID", scenario_id)
 
@@ -140,10 +164,12 @@ class UrbanAPIGateway:
         return polygon_gdf
 
     @staticmethod
-    async def get_indicator_values(scenario_id: int) -> dict:
+    async def get_indicator_values(scenario_id: int, token: str = None) -> dict:
         endpoint = f"/api/v1/scenarios/{scenario_id}/indicators_values"
         try:
-            response = await urban_api_handler.get(endpoint)
+            response = await urban_api_handler.get(endpoint, headers={
+                "Authorization": f"Bearer {token}"""
+            })
         except Exception:
             raise http_exception(404, "No indicators values found for the given scenario ID", scenario_id)
         return response
