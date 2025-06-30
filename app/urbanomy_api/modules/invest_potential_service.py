@@ -1,16 +1,16 @@
 import json
-from typing import Dict, Any, List
 import math
+from typing import Any, Dict, List
 
-from loguru import logger
-from urbanomy.methods.investment_potential import LandUseScoreAnalyzer, LAND_USE_TO_POTENTIAL_COLUMN, \
-    InvestmentAttractivenessAnalyzer
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
+from loguru import logger
+from urbanomy.methods.investment_potential import (
+    LAND_USE_TO_POTENTIAL_COLUMN, InvestmentAttractivenessAnalyzer,
+    LandUseScoreAnalyzer)
 
 from app.common.exceptions.http_exception_wrapper import http_exception
 from app.urbanomy_api.constants.zone_mapping import zone_mapping
-
 from app.urbanomy_api.modules.urban_api_gateway import UrbanAPIGateway
 from app.urbanomy_api.schemas.features_model import FeatureCollection
 
@@ -28,7 +28,7 @@ class InvestmentPotentialService:
                 status_code=500,
                 msg="Error calculating landuse score",
                 _input=gdf,
-                _detail={"error": str(e)}
+                _detail={"error": str(e)},
             )
         return score_gdf
 
@@ -43,18 +43,20 @@ class InvestmentPotentialService:
 
     @staticmethod
     async def get_territory_indicator_values(
-            scenario_id: int,
-            gdf: gpd.GeoDataFrame,
-            benchmarks: dict[str, dict[str, any]],
-            as_long: bool = False,
-            token: str | None = None,
+        scenario_id: int,
+        gdf: gpd.GeoDataFrame,
+        benchmarks: dict[str, dict[str, any]],
+        as_long: bool = False,
+        token: str | None = None,
     ) -> gpd.GeoDataFrame:
         """
         If as_long=False (default) — returns gdf with indicators as columns (wide).
         If as_long=True — returns GeoDataFrame with indicators as columns ['ip_type','ip_value','geometry'] (long).
         """
 
-        indicators = await UrbanAPIGateway.get_indicator_values(scenario_id, token=token)
+        indicators = await UrbanAPIGateway.get_indicator_values(
+            scenario_id, token=token
+        )
         attrs = {ind["indicator"]["name_full"]: ind["value"] for ind in indicators}
         for name, value in attrs.items():
             gdf[name] = value
@@ -96,22 +98,24 @@ class InvestmentPotentialService:
                 _detail={"missing_indicators": missing},
             )
 
-
-
         if not as_long:
             return gdf.to_crs(gdf.estimate_utm_crs())
 
-        records = gdf.apply(
-            lambda row: [
-                {
-                    "ip_type": key,
-                    "ip_value": row[LAND_USE_TO_POTENTIAL_COLUMN[key]],
-                    "geometry": row.geometry,
-                }
-                for key in benchmarks.keys()
-            ],
-            axis=1,
-        ).explode().tolist()
+        records = (
+            gdf.apply(
+                lambda row: [
+                    {
+                        "ip_type": key,
+                        "ip_value": row[LAND_USE_TO_POTENTIAL_COLUMN[key]],
+                        "geometry": row.geometry,
+                    }
+                    for key in benchmarks.keys()
+                ],
+                axis=1,
+            )
+            .explode()
+            .tolist()
+        )
 
         if not records:
             return gpd.GeoDataFrame(
@@ -120,14 +124,15 @@ class InvestmentPotentialService:
                 crs=gdf.crs,
             )
 
-        long_gdf = gpd.GeoDataFrame(pd.DataFrame(records), geometry="geometry", crs=gdf.crs)
+        long_gdf = gpd.GeoDataFrame(
+            pd.DataFrame(records), geometry="geometry", crs=gdf.crs
+        )
         logger.info(f"Indicator values fetched successfully for scenario {scenario_id}")
         return long_gdf.to_crs(long_gdf.estimate_utm_crs()).reset_index(drop=True)
 
     @staticmethod
     async def calculate_investment_attractiveness(
-            gdf: gpd.GeoDataFrame,
-            benchmarks: dict[str, dict[str, any]]
+        gdf: gpd.GeoDataFrame, benchmarks: dict[str, dict[str, any]]
     ) -> gpd.GeoDataFrame | pd.DataFrame:
         benchmarks = {k: v for k, v in benchmarks.items() if v is not None}
         valid_keys = set(benchmarks.keys())
@@ -142,33 +147,32 @@ class InvestmentPotentialService:
             raise http_exception(
                 500,
                 "Error occurred while calculating investment attractiveness",
-                _detail={"error": str(e)})
+                _detail={"error": str(e)},
+            )
 
         return gdf_out, summary
 
     @staticmethod
     async def map_zones(
-            score_gdf: gpd.GeoDataFrame,
-            zones_gdf: gpd.GeoDataFrame
+        score_gdf: gpd.GeoDataFrame, zones_gdf: gpd.GeoDataFrame
     ) -> gpd.GeoDataFrame:
 
         try:
-            ip_map: Dict[str, float] = score_gdf.set_index("ip_type")["ip_value"].to_dict()
+            ip_map: Dict[str, float] = score_gdf.set_index("ip_type")[
+                "ip_value"
+            ].to_dict()
             zone_map: Dict[str, int] = zone_mapping
 
             zone_to_ip = {v: k for k, v in zone_map.items()}
         except Exception as e:
-            raise http_exception(
-                500,
-                "Error mapping zones",
-                _detail={"error": str(e)})
+            raise http_exception(500, "Error mapping zones", _detail={"error": str(e)})
 
         residential_keys = [
             "residential_individual",
             "residential_lowrise",
             "residential_midrise",
             "residential_multistorey",
-            "residential"
+            "residential",
         ]
         max_res_val = max(ip_map[k] for k in residential_keys if k in ip_map)
 
@@ -181,7 +185,7 @@ class InvestmentPotentialService:
             .astype(str)
         )
 
-        out['area'] = out.geometry.area
+        out["area"] = out.geometry.area
 
         def _resolve_value(zid: int, itype: str) -> float | None:
             if itype in residential_keys:
@@ -189,21 +193,20 @@ class InvestmentPotentialService:
             return ip_map.get(itype)
 
         out["ip_value"] = out.apply(
-            lambda row: _resolve_value(row["zone_type_id"], row["ip_type"]),
-            axis=1
+            lambda row: _resolve_value(row["zone_type_id"], row["ip_type"]), axis=1
         )
         logger.info(f"Zone values have been calculated")
         return out
 
     @staticmethod
     async def generate_response(
-            gdf_out: gpd.GeoDataFrame,
-            summary: pd.DataFrame,
-            as_geojson: bool = False
+        gdf_out: gpd.GeoDataFrame, summary: pd.DataFrame, as_geojson: bool = False
     ) -> List[Dict[str, Any]]:
         if not as_geojson:
             df = summary.rename_axis("land_use_type").reset_index()
-            df["land_use_type_id"] = df["land_use_type"].map(zone_mapping).astype("Int64")
+            df["land_use_type_id"] = (
+                df["land_use_type"].map(zone_mapping).astype("Int64")
+            )
             records = df.to_dict(orient="records")
 
             cleaned = []
@@ -223,72 +226,115 @@ class InvestmentPotentialService:
 
     @staticmethod
     async def run_investment_calculation(
-            scenario_id,
-            as_geojson: bool,
-            benchmarks: dict[str, dict[str, any]],
-            token: str = None) \
-            -> gpd.GeoDataFrame | pd.DataFrame:
-        logger.info(f"Running investment calculation "
-                    f"for scenario {scenario_id}, "
-                    f"as_geojson={as_geojson}, "
-                    f"benchmarks={benchmarks}")
+        scenario_id,
+        as_geojson: bool,
+        benchmarks: dict[str, dict[str, any]],
+        token: str = None,
+    ) -> gpd.GeoDataFrame | pd.DataFrame:
+        logger.info(
+            f"Running investment calculation "
+            f"for scenario {scenario_id}, "
+            f"as_geojson={as_geojson}, "
+            f"benchmarks={benchmarks}"
+        )
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
-        territory_values_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id,
-                                                                                               territory_gdf,
-                                                                                               token=token,
-                                                                                               benchmarks=benchmarks
-                                                                                               )
-        landuse_score_gdf = await InvestmentPotentialService.calculate_landuse_score(territory_values_gdf)
-        gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(landuse_score_gdf,
-                                                                                                benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
+        territory_values_gdf = (
+            await InvestmentPotentialService.get_territory_indicator_values(
+                scenario_id, territory_gdf, token=token, benchmarks=benchmarks
+            )
+        )
+        landuse_score_gdf = await InvestmentPotentialService.calculate_landuse_score(
+            territory_values_gdf
+        )
+        gdf_out, summary = (
+            await InvestmentPotentialService.calculate_investment_attractiveness(
+                landuse_score_gdf, benchmarks
+            )
+        )
+        response = await InvestmentPotentialService.generate_response(
+            gdf_out, summary, as_geojson
+        )
         return response
 
     @staticmethod
     async def run_investment_calculation_fzones(
-            scenario_id, as_geojson: bool,
-            benchmarks: dict[str, dict[str, any]],
-            source: str = None,
-            token: str = None,
-            year: int = None) -> gpd.GeoDataFrame | pd.DataFrame:
-        logger.info(f"Running investment calculation "
-                    f"for scenario {scenario_id}, "
-                    f"as_geojson={as_geojson}, "
-                    f"benchmarks={benchmarks}")
+        scenario_id,
+        as_geojson: bool,
+        benchmarks: dict[str, dict[str, any]],
+        source: str = None,
+        token: str = None,
+        year: int = None,
+    ) -> gpd.GeoDataFrame | pd.DataFrame:
+        logger.info(
+            f"Running investment calculation "
+            f"for scenario {scenario_id}, "
+            f"as_geojson={as_geojson}, "
+            f"benchmarks={benchmarks}"
+        )
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
-        landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
-                                                                                            benchmarks=benchmarks,
-                                                                                            as_long=True, token=token)
-        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id, source=source, token=token, year=year)
-        mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, functional_zones_gdf)
+        landuse_score_gdf = (
+            await InvestmentPotentialService.get_territory_indicator_values(
+                scenario_id,
+                territory_gdf,
+                benchmarks=benchmarks,
+                as_long=True,
+                token=token,
+            )
+        )
+        functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(
+            scenario_id, source=source, token=token, year=year
+        )
+        mapped_zones_gdf = await InvestmentPotentialService.map_zones(
+            landuse_score_gdf, functional_zones_gdf
+        )
         mapped_zones_gdf = mapped_zones_gdf.to_crs(mapped_zones_gdf.estimate_utm_crs())
-        gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(
-            mapped_zones_gdf,
-            benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
+        gdf_out, summary = (
+            await InvestmentPotentialService.calculate_investment_attractiveness(
+                mapped_zones_gdf, benchmarks
+            )
+        )
+        response = await InvestmentPotentialService.generate_response(
+            gdf_out, summary, as_geojson
+        )
         return response
 
     @staticmethod
     async def run_investment_calculation_coords(
-            scenario_id, as_geojson: bool,
-            benchmarks: dict[str, dict[str, any]],
-            geojson: FeatureCollection,
-            token: str = None) -> gpd.GeoDataFrame | pd.DataFrame:
+        scenario_id,
+        as_geojson: bool,
+        benchmarks: dict[str, dict[str, any]],
+        geojson: FeatureCollection,
+        token: str = None,
+    ) -> gpd.GeoDataFrame | pd.DataFrame:
         geojson_dict = geojson.as_geo_dict()
         gdf = gpd.GeoDataFrame.from_features(geojson_dict["features"])
         gdf = gdf.set_crs("EPSG:4326")
-        logger.info(f"Running investment calculation "
-                    f"for scenario {scenario_id}, "
-                    f"as_geojson={as_geojson}, "
-                    f"benchmarks={benchmarks}")
+        logger.info(
+            f"Running investment calculation "
+            f"for scenario {scenario_id}, "
+            f"as_geojson={as_geojson}, "
+            f"benchmarks={benchmarks}"
+        )
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
-        landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
-                                                                                            benchmarks=benchmarks,
-                                                                                            as_long=True, token=token)
-        mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, gdf)
+        landuse_score_gdf = (
+            await InvestmentPotentialService.get_territory_indicator_values(
+                scenario_id,
+                territory_gdf,
+                benchmarks=benchmarks,
+                as_long=True,
+                token=token,
+            )
+        )
+        mapped_zones_gdf = await InvestmentPotentialService.map_zones(
+            landuse_score_gdf, gdf
+        )
         mapped_zones_gdf = mapped_zones_gdf.to_crs(mapped_zones_gdf.estimate_utm_crs())
-        gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(
-            mapped_zones_gdf,
-            benchmarks)
-        response = await InvestmentPotentialService.generate_response(gdf_out, summary, as_geojson)
+        gdf_out, summary = (
+            await InvestmentPotentialService.calculate_investment_attractiveness(
+                mapped_zones_gdf, benchmarks
+            )
+        )
+        response = await InvestmentPotentialService.generate_response(
+            gdf_out, summary, as_geojson
+        )
         return response
