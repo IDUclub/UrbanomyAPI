@@ -1,9 +1,11 @@
 import sys
+from pathlib import Path
 
 from loguru import logger
 from iduconfig import Config
 
 from app.common.api_handler.api_handler import APIHandler
+
 
 logger.remove()
 log_level = "INFO"
@@ -15,12 +17,11 @@ logger.add(
     colorize=True
 )
 
-logger.add("urbanomy.log", level=log_level, format=log_format, colorize=False, backtrace=True, diagnose=True)
-
 config = Config()
+log_path = Path().absolute() / config.get("LOG_FILE")
 
 logger.add(
-    "urbanomy.log",
+    log_path,
     format=log_format,
     level="INFO",
 )

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from app.common.exceptions.http_exception_wrapper import http_exception
+from app.dependencies import config, log_path
 
 
 logs_router = APIRouter(prefix="/system", tags=["System"])
@@ -17,7 +18,7 @@ async def get_logs():
 
     try:
         return FileResponse(
-            Path().absolute() / "urbanomy.log",
+            log_path,
             media_type='application/octet-stream',
             filename=f"urbanomy.log",
         )
@@ -26,8 +27,8 @@ async def get_logs():
             status_code=404,
             msg="Log file not found",
             _input={
-                "log_path": ".log",
-                "log_file_name": "urbanomy.log"
+                "log_path": str(log_path),
+                "log_file_name": config.get("LOG_FILE")
             },
             _detail={"error": repr(e)}
         ) from e
@@ -36,8 +37,8 @@ async def get_logs():
             status_code=500,
             msg="Internal server error during reading logs",
             _input={
-                "log_path": ".log",
-                "log_file_name": "urbanomy.log"
+                "log_path": str(log_path),
+                "log_file_name": config.get("LOG_FILE")
             },
             _detail={"error": repr(e)}
         ) from e

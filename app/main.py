@@ -17,7 +17,6 @@ app = FastAPI(
     title="Urbanomy API",
     description="API for calculating investing attractiveness of territory using Urbanomy library",
     version=config.get("APP_VERSION"),
-    lifespan=lifespan,
 )
 
 # Add CORS middleware
