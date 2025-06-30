@@ -33,66 +33,95 @@ class InvestmentPotentialService:
         return score_gdf
 
     @staticmethod
+    def _required_columns(benchmarks: dict[str, dict[str, any]]) -> set[str]:
+        """Translate land-use keys in `benchmarks` into indicator column names."""
+        return {
+            LAND_USE_TO_POTENTIAL_COLUMN[key]
+            for key, val in benchmarks.items()
+            if val is not None and key in LAND_USE_TO_POTENTIAL_COLUMN
+        }
+
+    @staticmethod
     async def get_territory_indicator_values(
             scenario_id: int,
             gdf: gpd.GeoDataFrame,
+            benchmarks: dict[str, dict[str, any]],
             as_long: bool = False,
-            token: str = None,
+            token: str | None = None,
     ) -> gpd.GeoDataFrame:
         """
         If as_long=False (default) — returns gdf with indicators as columns (wide).
         If as_long=True — returns GeoDataFrame with indicators as columns ['ip_type','ip_value','geometry'] (long).
         """
+
         indicators = await UrbanAPIGateway.get_indicator_values(scenario_id, token=token)
-        attrs = {ind['indicator']['name_full']: ind['value'] for ind in indicators}
+        attrs = {ind["indicator"]["name_full"]: ind["value"] for ind in indicators}
         for name, value in attrs.items():
             gdf[name] = value
+        requested_keys = [k for k, v in benchmarks.items() if v is not None]
 
-        columns = [
+        res_cols_detailed = [
             "Потенциал развития среднеэтажной жилой застройки",
             "Потенциал развития многоэтажной жилой застройки",
             "Потенциал развития малоэтажной жилой застройки",
-            "Потенциал развития жилой застройки типа ИЖС"
+            "Потенциал развития жилой застройки типа ИЖС",
         ]
-        gdf['Потенциал развития жилой застройки'] = gdf[columns].mean(axis=1)
-        gdf['Потенциал развития жилой застройки'] = gdf['Потенциал развития жилой застройки'].apply(math.ceil)
+
+        if benchmarks.get("residential") is not None:
+            present = [c for c in res_cols_detailed if c in gdf.columns]
+
+            if not present:
+                raise http_exception(
+                    404,
+                    "Missing detailed residential indicators for aggregating basic residential value",
+                    list(requested_keys),
+                    {"required_columns": res_cols_detailed},
+                )
+
+            gdf["Потенциал развития жилой застройки"] = (
+                gdf[present].mean(axis=1).apply(math.ceil)
+            )
+
+        missing = [
+            col
+            for col in InvestmentPotentialService._required_columns(benchmarks)
+            if col not in gdf.columns
+        ]
+        if missing:
+
+            raise http_exception(
+                404,
+                "Required indicators for evaluation are missing on the territory",
+                _input={"benchmarks": list(requested_keys)},
+                _detail={"missing_indicators": missing},
+            )
+
+
 
         if not as_long:
             return gdf.to_crs(gdf.estimate_utm_crs())
 
-        try:
-            list_of_lists = gdf.apply(
-                lambda row: [
-                    {
-                        "ip_type": ip_type,
-                        "ip_value": row[col],
-                        "geometry": row.geometry
-                    }
-                    for ip_type, col in LAND_USE_TO_POTENTIAL_COLUMN.items()
-                ],
-                axis=1
-            )
-        except Exception as e:
-            logger.exception("Error adjusting indicator values")
-            raise http_exception(
-                status_code=500,
-                msg="Error adjusting indicator values",
-                _input=gdf,
-                _detail={"error": str(e)}
-            )
-
-        records = [item for sublist in list_of_lists for item in sublist]
+        records = gdf.apply(
+            lambda row: [
+                {
+                    "ip_type": key,
+                    "ip_value": row[LAND_USE_TO_POTENTIAL_COLUMN[key]],
+                    "geometry": row.geometry,
+                }
+                for key in benchmarks.keys()
+            ],
+            axis=1,
+        ).explode().tolist()
 
         if not records:
             return gpd.GeoDataFrame(
                 columns=["ip_type", "ip_value", "geometry"],
                 geometry="geometry",
-                crs=gdf.crs
+                crs=gdf.crs,
             )
 
-        long_df = pd.DataFrame(records)
-        long_gdf = gpd.GeoDataFrame(long_df, geometry="geometry", crs=gdf.crs)
-        logger.info(f"Indicator values fetched successfully for scenario ID {scenario_id}")
+        long_gdf = gpd.GeoDataFrame(pd.DataFrame(records), geometry="geometry", crs=gdf.crs)
+        logger.info(f"Indicator values fetched successfully for scenario {scenario_id}")
         return long_gdf.to_crs(long_gdf.estimate_utm_crs()).reset_index(drop=True)
 
     @staticmethod
@@ -206,7 +235,9 @@ class InvestmentPotentialService:
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
         territory_values_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id,
                                                                                                territory_gdf,
-                                                                                               token=token)
+                                                                                               token=token,
+                                                                                               benchmarks=benchmarks
+                                                                                               )
         landuse_score_gdf = await InvestmentPotentialService.calculate_landuse_score(territory_values_gdf)
         gdf_out, summary = await InvestmentPotentialService.calculate_investment_attractiveness(landuse_score_gdf,
                                                                                                 benchmarks)
@@ -226,6 +257,7 @@ class InvestmentPotentialService:
                     f"benchmarks={benchmarks}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
+                                                                                            benchmarks=benchmarks,
                                                                                             as_long=True, token=token)
         functional_zones_gdf = await UrbanAPIGateway.get_functional_zones(scenario_id, source=source, token=token, year=year)
         mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, functional_zones_gdf)
@@ -251,6 +283,7 @@ class InvestmentPotentialService:
                     f"benchmarks={benchmarks}")
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
         landuse_score_gdf = await InvestmentPotentialService.get_territory_indicator_values(scenario_id, territory_gdf,
+                                                                                            benchmarks=benchmarks,
                                                                                             as_long=True, token=token)
         mapped_zones_gdf = await InvestmentPotentialService.map_zones(landuse_score_gdf, gdf)
         mapped_zones_gdf = mapped_zones_gdf.to_crs(mapped_zones_gdf.estimate_utm_crs())

@@ -1,15 +1,23 @@
-import aiofiles
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.gzip import GZipMiddleware
 
 from .dependencies import config
+from app.logs_router.logs_controller import logs_router
 from .urbanomy_api.urbanomic_controller import urbanomic_router
+
+@asynccontextmanager
+async def lifespan(router : FastAPI):
+    yield
 
 app = FastAPI(
     title="Urbanomy API",
     description="API for calculating investing attractiveness of territory using Urbanomy library",
     version=config.get("APP_VERSION"),
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -20,23 +28,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=100)
 
-
-@app.get("/", response_model=dict[str, str])
-def read_root():
-    return RedirectResponse(url='/docs')
-
-
-@app.get("/status")
+@app.get("/", include_in_schema=False)
 async def read_root():
-    return {"status": "OK"}
-
-
-@app.get("/logs")
-async def read_logs():
-    async with aiofiles.open(config.get("LOGS_FILE")) as logs_file:
-        logs = await logs_file.read()
-        return logs[-1:-10000]
-
+    return RedirectResponse('/docs')
 
 app.include_router(urbanomic_router)
+app.include_router(logs_router)

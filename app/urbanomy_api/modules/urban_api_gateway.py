@@ -1,9 +1,8 @@
 import geopandas as gpd
-import pandas as pd
 from loguru import logger
-from shapely.geometry import shape
 
-from app.dependencies import urban_api_handler, http_exception
+from app.common.exceptions.http_exception_wrapper import http_exception
+from app.dependencies import urban_api_handler
 
 
 class UrbanAPIGateway:
