@@ -11,11 +11,6 @@ from .dependencies import config
 from .urbanomy_api.urbanomic_controller import urbanomic_router
 
 
-@asynccontextmanager
-async def lifespan(router: FastAPI):
-    yield
-
-
 app = FastAPI(
     title="Urbanomy API",
     description="API for calculating investing attractiveness of territory using Urbanomy library",
