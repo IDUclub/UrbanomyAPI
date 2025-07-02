@@ -90,7 +90,6 @@ class InvestmentPotentialService:
             if col not in gdf.columns
         ]
         if missing:
-
             raise http_exception(
                 404,
                 "Required indicators for evaluation are missing on the territory",
@@ -109,7 +108,7 @@ class InvestmentPotentialService:
                         "ip_value": row[LAND_USE_TO_POTENTIAL_COLUMN[key]],
                         "geometry": row.geometry,
                     }
-                    for key in benchmarks.keys()
+                    for key in requested_keys
                 ],
                 axis=1,
             )
@@ -167,14 +166,15 @@ class InvestmentPotentialService:
         except Exception as e:
             raise http_exception(500, "Error mapping zones", _detail={"error": str(e)})
 
-        residential_keys = [
+        residential_keys_all = [
             "residential_individual",
             "residential_lowrise",
             "residential_midrise",
             "residential_multistorey",
             "residential",
         ]
-        max_res_val = max(ip_map[k] for k in residential_keys if k in ip_map)
+        residential_keys = [k for k in residential_keys_all if k in ip_map]
+        max_res_val = max(ip_map[k] for k in residential_keys) if residential_keys else None
 
         out = zones_gdf.copy()
         out = out.to_crs(out.estimate_utm_crs())
@@ -313,7 +313,8 @@ class InvestmentPotentialService:
             f"Running investment calculation "
             f"for scenario {scenario_id}, "
             f"as_geojson={as_geojson}, "
-            f"benchmarks={benchmarks}"
+            f"benchmarks={benchmarks}, "
+            f"Features: {geojson_dict}"
         )
         territory_gdf = await UrbanAPIGateway.get_territory(scenario_id, token=token)
         landuse_score_gdf = (
