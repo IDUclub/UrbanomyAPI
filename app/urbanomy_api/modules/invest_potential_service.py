@@ -174,9 +174,7 @@ class InvestmentPotentialService:
             "residential",
         ]
         residential_keys = [k for k in residential_keys_all if k in ip_map]
-        max_res_val: float | None = None
-        if residential_keys:
-            max_res_val = max(ip_map[k] for k in residential_keys)
+        max_res_val = max(ip_map[k] for k in residential_keys) if residential_keys else None
 
         out = zones_gdf.copy()
         out = out.to_crs(out.estimate_utm_crs())
