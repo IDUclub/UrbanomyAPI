@@ -4,6 +4,7 @@ services:
     container_name: ${CONTAINER_NAME}
     ports:
       - 8020:80
+      - 9465:9000
     env_file:
       - .env.development
     restart: always
