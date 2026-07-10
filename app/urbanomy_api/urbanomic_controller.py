@@ -2,7 +2,7 @@ from typing import Annotated, Any, Dict
 
 from fastapi import APIRouter, Depends, FastAPI
 
-from app.common.auth.auth import verify_token
+from app.common.auth.auth import get_service_access_token
 from app.urbanomy_api.dto.benchmarks_dto import (non_residential_demo,
                                                  residential_demo)
 from app.urbanomy_api.dto.investment_attractivness_dto import \
@@ -23,7 +23,7 @@ async def calculate_investment_attractiveness(
     params: Annotated[
         InvestmentAttractivenessRequestDTO, Depends(InvestmentAttractivenessRequestDTO)
     ],
-    token: str = Depends(verify_token),
+    token: str = Depends(get_service_access_token),
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation(
@@ -38,7 +38,7 @@ async def calculate_investment_attractiveness_functional_zones(
         InvestmentAttractivenessFunctionalZonesRequestDTO,
         Depends(InvestmentAttractivenessFunctionalZonesRequestDTO),
     ],
-    token: str = Depends(verify_token),
+    token: str = Depends(get_service_access_token),
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_fzones(
@@ -53,7 +53,7 @@ async def calculate_investment_attractiveness_by_coords(
     params: Annotated[
         InvestmentAttractivenessCoordsDto, Depends(InvestmentAttractivenessCoordsDto)
     ],
-    token: str = Depends(verify_token),
+    token: str = Depends(get_service_access_token),
 ):
     benchmarks_dict: Dict[str, Dict[str, Any]] = params.benchmarks.model_dump()
     result = await InvestmentPotentialService.run_investment_calculation_coords(

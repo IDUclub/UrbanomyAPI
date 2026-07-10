@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 
+import aiohttp
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 from loguru import logger
 
+from app.common.auth.auth import build_keycloak_config
+from app.common.auth.keycloak_client import KeycloakTokenClient
 from app.common.middlewares.prometheus_handler import ObservabilityMiddleware
 from app.logs_router.logs_controller import logs_router
 
@@ -35,9 +38,18 @@ async def lifespan(app: FastAPI):
         ),
     )
     logger.info(f"Prometheus server started on {prometheus_port}")
-    yield
-    otel_agent.shutdown()
-    logger.info("Prometheus server was shut down")
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with KeycloakTokenClient(
+                build_keycloak_config(),
+                session=http,
+            ) as keycloak_auth:
+                await keycloak_auth.get_access_token()
+                app.state.keycloak_auth = keycloak_auth
+                yield
+    finally:
+        otel_agent.shutdown()
+        logger.info("Prometheus server was shut down")
 
 
 app = FastAPI(

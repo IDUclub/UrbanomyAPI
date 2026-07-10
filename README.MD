@@ -3,6 +3,17 @@
 ## Main info
 API for Urbanomy library https://github.com/Mvin8/Urbanomy.git
 
+## Keycloak service auth
+The service uses a Python 3.10 compatible Machine-to-Machine Keycloak client
+based on `IDUclub/idu-service-auth` when calling Urban API. Configure these
+environment variables:
+
+- `KEYCLOAK_URL`
+- `KEYCLOAK_REALM`
+- `KEYCLOAK_CLIENT_ID`
+- `KEYCLOAK_CLIENT_SECRET`
+- `KEYCLOAK_SCOPE` (optional)
+
 ## API Methods
 ### /calculate_investment_attractiveness
 Calculates investments metrics for scenario territory
